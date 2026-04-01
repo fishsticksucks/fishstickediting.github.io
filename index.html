@@ -555,7 +555,24 @@ function clearForm(){
 }
 
 /* ---------------- INIT ---------------- */
+function tryLogin() {
+  const input = document.getElementById('pw').value;
+  const err = document.getElementById('pw-err');
 
+  if (input === PASS) {
+    document.getElementById('lock-screen').style.display = 'none';
+    document.getElementById('admin-panel').style.display = 'block';
+    err.style.display = 'none';
+  } else {
+    err.style.display = 'block';
+  }
+}
+
+function logout() {
+  document.getElementById('lock-screen').style.display = 'flex';
+  document.getElementById('admin-panel').style.display = 'none';
+  document.getElementById('pw').value = '';
+}
 loadJobs();
 setInterval(updateTimers,1000);
 </script>
