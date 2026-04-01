@@ -332,78 +332,121 @@
 
 <!-- ADMIN PAGE -->
 <div id="page-admin" class="page">
-  <div id="lock-screen" class="lock-wrap">
-    <h2>Control panel</h2>
-    <p>Enter your password to manage jobs</p>
-    <div class="lock-row">
-      <input type="password" id="pw" placeholder="Password" onkeydown="if(event.key==='Enter')tryLogin()" />
-      <button class="tab-btn active" onclick="tryLogin()">unlock</button>
-    </div>
-    <div class="err" id="pw-err">incorrect password</div>
-  </div>
+    <div id="lock-screen" class="lock-wrap">
+        <h2>Control Panel</h2>
+        <p>Login to manage jobs</p>
 
-  <div id="admin-panel" style="display:none;">
-    <div class="section-head" style="margin-bottom:16px;">
-      <h2>add new job</h2>
-      <button class="tab-btn" onclick="logout()" style="font-size:12px;">lock</button>
-    </div>
-
-    <div class="add-form">
-      <div class="form-grid">
-        <div class="field-group">
-          <div class="field-label">client name</div>
-          <input type="text" id="f-client" placeholder="e.g. Alex Johnson" />
+        <div class="lock-row" style="flex-direction:column; gap:10px;">
+            <input id="email" placeholder="Email" />
+            <input type="password" id="password" placeholder="Password" onkeydown="if(event.key==='Enter')tryLogin()" />
+            <button class="tab-btn active" onclick="tryLogin()">Login</button>
         </div>
-        <div class="field-group">
-          <div class="field-label">video title</div>
-          <input type="text" id="f-title" placeholder="e.g. Vlog #12" />
-        </div>
-      </div>
-      <div class="field-label" style="margin-bottom:8px;">estimated time remaining</div>
-      <div class="time-inputs">
-        <input type="number" id="f-days"  placeholder="0" min="0" />
-        <input type="number" id="f-hours" placeholder="0" min="0" max="23" />
-        <input type="number" id="f-mins"  placeholder="0" min="0" max="59" />
-      </div>
-      <div class="time-labels">
-        <div class="time-label">days</div>
-        <div class="time-label">hours</div>
-        <div class="time-label">minutes</div>
-      </div>
-      <div class="submit-row">
-        <button class="btn-primary" onclick="addJob()">add job</button>
-      </div>
+
+        <div class="err" id="pw-err">login failed</div>
     </div>
 
-    <div class="section-head">
-      <h2>active jobs</h2>
-      <span class="sync-dot" id="sync-status">loading</span>
+    <div id="admin-panel" style="display:none;">
+        <div class="section-head" style="margin-bottom:16px;">
+            <h2>add new job</h2>
+            <button class="tab-btn" onclick="logout()" style="font-size:12px;">lock</button>
+        </div>
+
+        <div class="add-form">
+            <div class="form-grid">
+                <div class="field-group">
+                    <div class="field-label">client name</div>
+                    <input type="text" id="f-client" placeholder="e.g. Alex Johnson" />
+                </div>
+                <div class="field-group">
+                    <div class="field-label">video title</div>
+                    <input type="text" id="f-title" placeholder="e.g. Vlog #12" />
+                </div>
+            </div>
+            <div class="field-label" style="margin-bottom:8px;">estimated time remaining</div>
+            <div class="time-inputs">
+                <input type="number" id="f-days" placeholder="0" min="0" />
+                <input type="number" id="f-hours" placeholder="0" min="0" max="23" />
+                <input type="number" id="f-mins" placeholder="0" min="0" max="59" />
+            </div>
+            <div class="time-labels">
+                <div class="time-label">days</div>
+                <div class="time-label">hours</div>
+                <div class="time-label">minutes</div>
+            </div>
+            <div class="submit-row">
+                <button class="btn-primary" onclick="addJob()">add job</button>
+            </div>
+        </div>
+
+        <div class="section-head">
+            <h2>active jobs</h2>
+            <span class="sync-dot" id="sync-status">loading</span>
+        </div>
+        <div id="admin-list" class="jobs-list"></div>
     </div>
-    <div id="admin-list" class="jobs-list"></div>
-  </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
+window.addEventListener("DOMContentLoaded", () => {
+
 const SUPABASE_URL = "https://lpnqirboiijezxgruzks.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxwbnFpcmJvaWlqZXp4Z3J1emtzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNDg5NzksImV4cCI6MjA5MDYyNDk3OX0.15MIHCIDL13z_tlZbE-uN_Ac1Oa9cQk2jo-bdI2weXc";
+const SUPABASE_KEY = "YOUR_KEY_HERE";
 
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const PASS = "fishstickissuchacoolediter124";
-let jobs = [];
-let loaded = false;
+/* ---------------- AUTH ---------------- */
+
+async function tryLogin() {
+  const email = document.getElementById('email').value;
+  const password = document.getElementById('password').value;
+
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+  const err = document.getElementById('pw-err');
+
+  if (error) {
+    err.style.display = 'block';
+    err.textContent = "login failed";
+    return;
+  }
+
+  showAdmin();
+}
+
+async function logout() {
+  await supabase.auth.signOut();
+  showLock();
+}
+
+async function checkUser() {
+  const { data } = await supabase.auth.getSession();
+
+  if (data.session) {
+    showAdmin();
+  } else {
+    showLock();
+  }
+}
+
+function showAdmin() {
+  document.getElementById('lock-screen').style.display = 'none';
+  document.getElementById('admin-panel').style.display = 'block';
+}
+
+function showLock() {
+  document.getElementById('lock-screen').style.display = 'flex';
+  document.getElementById('admin-panel').style.display = 'none';
+}
 
 /* ---------------- UI ---------------- */
 
-function switchTab(t) {
-  ['client', 'admin'].forEach(p => {
-    document.getElementById('page-' + p).classList.remove('active');
-    document.getElementById('tab-' + p).classList.remove('active');
-  });
+function switchTab(tab) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + tab).classList.add('active');
 
-  document.getElementById('page-' + t).classList.add('active');
-  document.getElementById('tab-' + t).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
 }
 
 function toggleDark() {
@@ -412,167 +455,16 @@ function toggleDark() {
   html.setAttribute('data-theme', isDark ? 'light' : 'dark');
 }
 
-function ms(d,h,m){return((d*24+h)*60+m)*60000}
-
-/* ---------------- DATA ---------------- */
-
-async function loadJobs() {
-  const { data, error } = await supabase
-    .from('jobs')
-    .select('*')
-    .order('id');
-
-  if (error) {
-    console.error(error);
-    return;
-  }
-
-  jobs = data;
-  loaded = true;
-  render();
-}
-
-async function addJob() {
-  const client = f('f-client');
-  const title = f('f-title');
-  const d = +f('f-days')||0;
-  const h = +f('f-hours')||0;
-  const m = +f('f-mins')||0;
-
-  if(!client||!title||(d+h+m===0))return;
-
-  const duration = ms(d,h,m);
-
-  await supabase.from('jobs').insert([{
-    client,
-    title,
-    endsAt: Date.now()+duration,
-    total: duration
-  }]);
-
-  clearForm();
-}
-
-async function deleteJob(id){
-  await supabase.from('jobs').delete().eq('id',id);
-}
-
-async function adjustTime(id,msAdd){
-  const j = jobs.find(j=>j.id===id);
-  if(!j)return;
-
-  await supabase
-    .from('jobs')
-    .update({ endsAt: Math.max(Date.now(), j.endsAt+msAdd) })
-    .eq('id',id);
-}
-
-/* ---------------- REALTIME ---------------- */
-
-supabase
-  .channel('jobs')
-  .on('postgres_changes',{event:'*',schema:'public',table:'jobs'},loadJobs)
-  .subscribe();
-
-/* ---------------- RENDER ---------------- */
-
-function render(){
-  if(!loaded)return;
-
-  const cl = document.getElementById('client-list');
-  const al = document.getElementById('admin-list');
-
-  if(!jobs.length){
-    cl.innerHTML='<div class="empty">no jobs</div>';
-    al.innerHTML='<div class="empty">no jobs</div>';
-    return;
-  }
-
-  cl.innerHTML = jobs.map(j=>{
-    const cd = fmt(j.endsAt);
-    return `
-    <div class="c-card">
-      <div class="c-client">${j.client}</div>
-      <div class="c-title">${j.title}</div>
-      <div class="c-timer" data-ends="${j.endsAt}">${cd}</div>
-      <div class="progress">
-        <div class="progress-bar" data-progress-id="${j.id}"></div>
-      </div>
-    </div>`;
-  }).join('');
-
-  al.innerHTML = jobs.map(j=>{
-    return `
-    <div class="job-card">
-      <b>${j.client}</b> - ${j.title}
-      <button onclick="adjustTime(${j.id},3600000)">+1h</button>
-      <button onclick="deleteJob(${j.id})">delete</button>
-      <div class="progress">
-        <div class="progress-bar" data-progress-id="${j.id}"></div>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-/* ---------------- TIMER ENGINE ---------------- */
-
-function fmt(end){
-  const s=Math.floor((end-Date.now())/1000);
-  if(s<=0)return"Done!";
-  const h=Math.floor(s/3600);
-  const m=Math.floor((s%3600)/60);
-  const sec=s%60;
-  return h>0?`${h}:${pad(m)}:${pad(sec)}`:`${m}:${pad(sec)}`;
-}
-
-function pad(n){return String(n).padStart(2,'0')}
-
-function updateTimers(){
-  document.querySelectorAll('[data-ends]').forEach(el=>{
-    const end=+el.dataset.ends;
-    const t=fmt(end);
-    if(el.textContent!==t){
-      el.textContent=t;
-      el.animate([{opacity:.6},{opacity:1}],{duration:150});
-    }
-  });
-
-  document.querySelectorAll('[data-progress-id]').forEach(el=>{
-    const j=jobs.find(j=>j.id==el.dataset.progressId);
-    if(!j)return;
-    const pct=100-(Math.max(0,j.endsAt-Date.now())/j.total*100);
-    el.style.width=pct+'%';
-  });
-}
-
-/* ---------------- HELPERS ---------------- */
-
-function f(id){return document.getElementById(id).value.trim()}
-
-function clearForm(){
-  ['f-client','f-title','f-days','f-hours','f-mins']
-  .forEach(id=>document.getElementById(id).value='');
-}
-
 /* ---------------- INIT ---------------- */
-function tryLogin() {
-  const input = document.getElementById('pw').value;
-  const err = document.getElementById('pw-err');
 
-  if (input === PASS) {
-    document.getElementById('lock-screen').style.display = 'none';
-    document.getElementById('admin-panel').style.display = 'block';
-    err.style.display = 'none';
-  } else {
-    err.style.display = 'block';
-  }
-}
+checkUser();
 
-function logout() {
-  document.getElementById('lock-screen').style.display = 'flex';
-  document.getElementById('admin-panel').style.display = 'none';
-  document.getElementById('pw').value = '';
-}
-loadJobs();
-setInterval(updateTimers,1000);
+/* expose to HTML */
+window.switchTab = switchTab;
+window.tryLogin = tryLogin;
+window.logout = logout;
+window.toggleDark = toggleDark;
+
+});
 </script>
+
