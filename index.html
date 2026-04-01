@@ -399,6 +399,8 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 async function tryLogin() {
   console.log("LOGIN CLICKED");
+  console.log("EMAIL:", email);
+console.log("PASSWORD:", password);
   const email = document.getElementById('email').value;
   const password = document.getElementById('password').value;
 
