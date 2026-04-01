@@ -131,14 +131,19 @@
 
     .jobs-list { display: flex; flex-direction: column; gap: 12px; }
     .job-card {
-      background: var(--surface); border: 1px solid var(--border);
+      background: rgba(255,255,255,0.64);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.35);
       border-radius: var(--radius); padding: 16px 18px;
-      box-shadow: var(--shadow);
+      box-shadow: 0 12px 30px rgba(16,24,40,0.08);
       transition: transform 0.18s ease, box-shadow 0.18s ease;
-      animation: fadeIn 0.3s ease;
     }
-    .job-card:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(0,0,0,0.09); }
-    .job-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+    [data-theme="dark"] .job-card {
+      background: rgba(25,28,33,0.58);
+      border-color: rgba(255,255,255,0.08);
+      box-shadow: 0 12px 30px rgba(0,0,0,0.28);
+    }
     .job-client { font-size: 12px; color: var(--text2); margin-bottom: 2px; }
     .job-title { font-size: 15px; font-weight: 600; }
     .cd-badge { font-size: 12px; font-weight: 500; padding: 4px 10px; border-radius: 20px; white-space: nowrap; }
@@ -169,11 +174,18 @@
     .client-header p { font-size: 15px; color: var(--text2); }
 
     .c-card {
-      background: var(--surface); border: 1px solid var(--border);
+      background: rgba(255,255,255,0.64);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.35);
       border-radius: var(--radius); padding: 22px 24px; margin-bottom: 14px;
-      box-shadow: var(--shadow);
+      box-shadow: 0 12px 30px rgba(16,24,40,0.08);
       transition: transform 0.18s ease, box-shadow 0.18s ease;
-      animation: fadeIn 0.3s ease;
+    }
+    [data-theme="dark"] .c-card {
+      background: rgba(25,28,33,0.58);
+      border-color: rgba(255,255,255,0.08);
+      box-shadow: 0 12px 30px rgba(0,0,0,0.28);
     }
     .c-card:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(0,0,0,0.09); }
     .c-client { font-size: 12px; color: var(--text2); margin-bottom: 4px; }
@@ -226,23 +238,6 @@
     }
 
     .c-card, .job-card, .add-form, .lock-wrap, .c-eta, .empty {
-      animation: fadeInUp 0.42s ease both;
-    }
-
-    .c-card, .job-card, .add-form, .lock-wrap {
-      background: rgba(255, 255, 255, 0.64);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255,255,255,0.35);
-      box-shadow: 0 12px 30px rgba(16, 24, 40, 0.08);
-    }
-    [data-theme="dark"] .c-card,
-    [data-theme="dark"] .job-card,
-    [data-theme="dark"] .add-form,
-    [data-theme="dark"] .lock-wrap {
-      background: rgba(25, 28, 33, 0.58);
-      border-color: rgba(255,255,255,0.08);
-      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
     }
 
     .c-card, .job-card {
@@ -263,7 +258,6 @@
     }
 
     .fade-in {
-      animation: fadeInUp 0.36s ease both;
     }
     @keyframes fadeInUp {
       from { opacity: 0; transform: translateY(10px); }
@@ -397,8 +391,17 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let jobs = [];
 
+/* ---------------- SYNC STATUS ---------------- */
+function setSyncStatus(msg, state) {
+  const el = document.getElementById('sync-status');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'sync-dot' + (state ? ' ' + state : '');
+}
+
 /* ---------------- LOAD JOBS ---------------- */
 async function loadJobs() {
+  setSyncStatus('syncing…', '');
   const { data, error } = await supabase
     .from('jobs')
     .select('*')
@@ -406,92 +409,147 @@ async function loadJobs() {
 
   if (error) {
     console.error(error);
-    document.getElementById('client-list').innerHTML = "failed to load";
+    setSyncStatus('offline', 'err');
+    document.getElementById('client-list').innerHTML = '<div class="empty">failed to load — check connection</div>';
     return;
   }
 
   jobs = data;
+  setSyncStatus('synced', 'ok');
   render();
 }
 
 /* ---------------- ADD JOB ---------------- */
 async function addJob() {
-  const client = document.getElementById('f-client').value;
-  const title = document.getElementById('f-title').value;
-  const days = parseInt(document.getElementById('f-days').value) || 0;
-  const hours = parseInt(document.getElementById('f-hours').value) || 0;
-  const mins = parseInt(document.getElementById('f-mins').value) || 0;
+  const client = document.getElementById('f-client').value.trim();
+  const title  = document.getElementById('f-title').value.trim();
+  const days   = parseInt(document.getElementById('f-days').value)  || 0;
+  const hours  = parseInt(document.getElementById('f-hours').value) || 0;
+  const mins   = parseInt(document.getElementById('f-mins').value)  || 0;
 
-  const totalMs = ((days*24 + hours)*60 + mins) * 60 * 1000;
+  if (!client || !title || (days + hours + mins === 0)) return;
+
+  const totalMs = ((days * 24 + hours) * 60 + mins) * 60 * 1000;
   const endTime = Date.now() + totalMs;
 
-  await supabase.from('jobs').insert([
-    { client, title, end_time: endTime }
-  ]);
+  setSyncStatus('saving…', '');
+  const { error } = await supabase.from('jobs').insert([{ client, title, end_time: endTime }]);
+  if (error) { setSyncStatus('save failed', 'err'); console.error(error); return; }
 
+  ['f-client','f-title','f-days','f-hours','f-mins'].forEach(id => document.getElementById(id).value = '');
+  setSyncStatus('saved', 'ok');
   loadJobs();
+}
+
+/* ---------------- ADJUST TIME ---------------- */
+async function adjustTime(id, ms) {
+  const job = jobs.find(j => j.id === id);
+  if (!job) return;
+  const newEnd = Math.max(Date.now() + 1000, job.end_time + ms);
+  setSyncStatus('saving…', '');
+  const { error } = await supabase.from('jobs').update({ end_time: newEnd }).eq('id', id);
+  if (error) { setSyncStatus('save failed', 'err'); console.error(error); return; }
+  job.end_time = newEnd;
+  setSyncStatus('saved', 'ok');
+  render();
 }
 
 /* ---------------- DELETE ---------------- */
 async function deleteJob(id) {
-  await supabase.from('jobs').delete().eq('id', id);
+  setSyncStatus('saving…', '');
+  const { error } = await supabase.from('jobs').delete().eq('id', id);
+  if (error) { setSyncStatus('save failed', 'err'); console.error(error); return; }
+  setSyncStatus('saved', 'ok');
   loadJobs();
 }
 
 /* ---------------- RENDER ---------------- */
+function pad(n) { return String(n).padStart(2, '0'); }
+
+function fmtCountdown(endTime) {
+  const diff = endTime - Date.now();
+  if (diff <= 0) return { text: 'Done!', cls: 'done' };
+  const totalSecs = Math.floor(diff / 1000);
+  const d = Math.floor(totalSecs / 86400);
+  const h = Math.floor((totalSecs % 86400) / 3600);
+  const m = Math.floor((totalSecs % 3600) / 60);
+  const s = totalSecs % 60;
+  const text = d > 0 ? `${d}d ${pad(h)}h ${pad(m)}m` : `${pad(h)}:${pad(m)}:${pad(s)}`;
+  const cls = diff < 3600000 ? 'soon' : '';
+  return { text, cls };
+}
+
+function fmtETA(endTime) {
+  if (endTime <= Date.now()) return 'completed';
+  return 'est. done ' + new Date(endTime).toLocaleString('en-US', {
+    month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+  });
+}
+
 function render() {
   const clientList = document.getElementById('client-list');
-  const adminList = document.getElementById('admin-list');
+  const adminList  = document.getElementById('admin-list');
 
   if (!jobs.length) {
-    clientList.innerHTML = '<div class="empty">no active jobs</div>';
-    adminList.innerHTML = '';
+    clientList.innerHTML = '<div class="empty">no active jobs right now</div>';
+    if (adminList) adminList.innerHTML = '<div class="empty">no jobs yet — add one above</div>';
     return;
   }
 
-  clientList.innerHTML = '';
-  adminList.innerHTML = '';
+  clientList.innerHTML = jobs.map(job => {
+    const cd = fmtCountdown(job.end_time);
+    return `<div class="c-card">
+      <div class="c-client">${job.client}</div>
+      <div class="c-title">${job.title}</div>
+      <div class="c-timer ${cd.cls}" data-id="${job.id}">${cd.text}</div>
+      <div class="c-eta" data-eta="${job.id}">${fmtETA(job.end_time)}</div>
+    </div>`;
+  }).join('');
 
-  jobs.forEach(job => {
-    const remaining = job.end_time - Date.now();
-
-    const d = Math.floor(remaining / (1000*60*60*24));
-    const h = Math.floor((remaining / (1000*60*60)) % 24);
-    const m = Math.floor((remaining / (1000*60)) % 60);
-    const s = Math.floor((remaining / 1000) % 60);
-
-    const timeText = remaining <= 0
-      ? "done"
-      : `${d}d ${h}h ${m}m ${s}s`;
-
-    // CLIENT VIEW
-    clientList.innerHTML += `
-      <div class="c-card">
-        <div class="c-client">${job.client}</div>
-        <div class="c-title">${job.title}</div>
-        <div class="c-timer">${timeText}</div>
-      </div>
-    `;
-
-    // ADMIN VIEW
-    adminList.innerHTML += `
-      <div class="job-card">
+  if (!adminList) return;
+  adminList.innerHTML = jobs.map(job => {
+    const cd = fmtCountdown(job.end_time);
+    return `<div class="job-card">
+      <div class="job-top">
         <div>
           <div class="job-client">${job.client}</div>
           <div class="job-title">${job.title}</div>
         </div>
-        <div class="job-controls">
-          <button class="del-btn" onclick="deleteJob(${job.id})">delete</button>
-        </div>
+        <span class="cd-badge ${cd.cls === 'done' ? 'cd-done' : cd.cls === 'soon' ? 'cd-soon' : 'cd-ok'}" data-badge="${job.id}">${cd.text}</span>
       </div>
-    `;
+      <div class="job-controls">
+        <span class="ctrl-label">adjust:</span>
+        <button class="time-btn" onclick="adjustTime(${job.id}, -3600000)">-1h</button>
+        <button class="time-btn" onclick="adjustTime(${job.id}, -1800000)">-30m</button>
+        <button class="time-btn" onclick="adjustTime(${job.id},  1800000)">+30m</button>
+        <button class="time-btn" onclick="adjustTime(${job.id},  3600000)">+1h</button>
+        <button class="time-btn" onclick="adjustTime(${job.id}, 86400000)">+1d</button>
+        <button class="del-btn"  onclick="deleteJob(${job.id})">delete</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// tick — only updates the timer text nodes, no DOM rebuild
+function tick() {
+  jobs.forEach(job => {
+    const cd = fmtCountdown(job.end_time);
+
+    const timer = document.querySelector(`.c-timer[data-id="${job.id}"]`);
+    if (timer) {
+      timer.textContent = cd.text;
+      timer.className = `c-timer ${cd.cls}`;
+    }
+
+    const badge = document.querySelector(`.cd-badge[data-badge="${job.id}"]`);
+    if (badge) {
+      badge.textContent = cd.text;
+      badge.className = `cd-badge ${cd.cls === 'done' ? 'cd-done' : cd.cls === 'soon' ? 'cd-soon' : 'cd-ok'}`;
+    }
   });
 }
 
-/* ---------------- TIMER LOOP ---------------- */
-setInterval(render, 1000);
-
-/* ---------------- AUTH (unchanged) ---------------- */
+/* ---------------- AUTH ---------------- */
 async function tryLogin() {
   const email = document.getElementById('email').value;
   const password = document.getElementById('password').value;
@@ -499,7 +557,6 @@ async function tryLogin() {
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   const err = document.getElementById('pw-err');
-
   if (error) {
     err.style.display = 'block';
     return;
@@ -515,7 +572,6 @@ async function logout() {
 
 async function checkUser() {
   const { data } = await supabase.auth.getSession();
-
   if (data.session) showAdmin();
   else showLock();
 }
@@ -557,14 +613,10 @@ function getSystemTheme() {
 // load theme on start
 function loadTheme() {
   const saved = localStorage.getItem('theme');
-const btn = document.getElementById('theme-btn');
-if (btn) btn.textContent = theme === 'dark' ? '☀️' : '🌙';
-
-  if (saved) {
-    applyTheme(saved);
-  } else {
-    applyTheme(getSystemTheme());
-  }
+  const theme = saved || getSystemTheme();
+  applyTheme(theme);
+  const btn = document.getElementById('theme-btn');
+  if (btn) btn.textContent = theme === 'dark' ? '☀️' : '🌙';
 }
 
 // toggle manually
@@ -572,6 +624,8 @@ function toggleDark() {
   const current = document.documentElement.getAttribute('data-theme');
   const next = current === 'dark' ? 'light' : 'dark';
   applyTheme(next);
+  const btn = document.getElementById('theme-btn');
+  if (btn) btn.textContent = next === 'dark' ? '☀️' : '🌙';
 }
 
 // auto-update if user changes system theme
@@ -587,9 +641,12 @@ window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e =
 loadTheme();
 checkUser();
 loadJobs();
+setInterval(loadJobs, 15000);    // re-sync from Supabase every 15s
+setInterval(tick, 1000);         // smooth countdown tick
 
 /* expose */
 window.addJob = addJob;
+window.adjustTime = adjustTime;
 window.deleteJob = deleteJob;
 window.switchTab = switchTab;
 window.tryLogin = tryLogin;
