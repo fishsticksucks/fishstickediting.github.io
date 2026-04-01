@@ -391,16 +391,108 @@
 window.addEventListener("DOMContentLoaded", () => {
 
 const SUPABASE_URL = "https://lpnqirboiijezxgruzks.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxwbnFpcmJvaWlqZXp4Z3J1emtzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNDg5NzksImV4cCI6MjA5MDYyNDk3OX0.15MIHCIDL13z_tlZbE-uN_Ac1Oa9cQk2jo-bdI2weXc";
+const SUPABASE_KEY = "YOUR_REAL_KEY_HERE";
 
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-/* ---------------- AUTH ---------------- */
+let jobs = [];
 
+/* ---------------- LOAD JOBS ---------------- */
+async function loadJobs() {
+  const { data, error } = await supabase
+    .from('jobs')
+    .select('*')
+    .order('id', { ascending: false });
+
+  if (error) {
+    console.error(error);
+    document.getElementById('client-list').innerHTML = "failed to load";
+    return;
+  }
+
+  jobs = data;
+  render();
+}
+
+/* ---------------- ADD JOB ---------------- */
+async function addJob() {
+  const client = document.getElementById('f-client').value;
+  const title = document.getElementById('f-title').value;
+  const days = parseInt(document.getElementById('f-days').value) || 0;
+  const hours = parseInt(document.getElementById('f-hours').value) || 0;
+  const mins = parseInt(document.getElementById('f-mins').value) || 0;
+
+  const totalMs = ((days*24 + hours)*60 + mins) * 60 * 1000;
+  const endTime = Date.now() + totalMs;
+
+  await supabase.from('jobs').insert([
+    { client, title, end_time: endTime }
+  ]);
+
+  loadJobs();
+}
+
+/* ---------------- DELETE ---------------- */
+async function deleteJob(id) {
+  await supabase.from('jobs').delete().eq('id', id);
+  loadJobs();
+}
+
+/* ---------------- RENDER ---------------- */
+function render() {
+  const clientList = document.getElementById('client-list');
+  const adminList = document.getElementById('admin-list');
+
+  if (!jobs.length) {
+    clientList.innerHTML = '<div class="empty">no active jobs</div>';
+    adminList.innerHTML = '';
+    return;
+  }
+
+  clientList.innerHTML = '';
+  adminList.innerHTML = '';
+
+  jobs.forEach(job => {
+    const remaining = job.end_time - Date.now();
+
+    const d = Math.floor(remaining / (1000*60*60*24));
+    const h = Math.floor((remaining / (1000*60*60)) % 24);
+    const m = Math.floor((remaining / (1000*60)) % 60);
+    const s = Math.floor((remaining / 1000) % 60);
+
+    const timeText = remaining <= 0
+      ? "done"
+      : `${d}d ${h}h ${m}m ${s}s`;
+
+    // CLIENT VIEW
+    clientList.innerHTML += `
+      <div class="c-card">
+        <div class="c-client">${job.client}</div>
+        <div class="c-title">${job.title}</div>
+        <div class="c-timer">${timeText}</div>
+      </div>
+    `;
+
+    // ADMIN VIEW
+    adminList.innerHTML += `
+      <div class="job-card">
+        <div>
+          <div class="job-client">${job.client}</div>
+          <div class="job-title">${job.title}</div>
+        </div>
+        <div class="job-controls">
+          <button class="del-btn" onclick="deleteJob(${job.id})">delete</button>
+        </div>
+      </div>
+    `;
+  });
+}
+
+/* ---------------- TIMER LOOP ---------------- */
+setInterval(render, 1000);
+
+/* ---------------- AUTH (unchanged) ---------------- */
 async function tryLogin() {
-  console.log("LOGIN CLICKED");
-  console.log("EMAIL:", email);
-console.log("PASSWORD:", password);
   const email = document.getElementById('email').value;
   const password = document.getElementById('password').value;
 
@@ -410,7 +502,6 @@ console.log("PASSWORD:", password);
 
   if (error) {
     err.style.display = 'block';
-    err.textContent = "login failed";
     return;
   }
 
@@ -425,11 +516,8 @@ async function logout() {
 async function checkUser() {
   const { data } = await supabase.auth.getSession();
 
-  if (data.session) {
-    showAdmin();
-  } else {
-    showLock();
-  }
+  if (data.session) showAdmin();
+  else showLock();
 }
 
 function showAdmin() {
@@ -443,7 +531,6 @@ function showLock() {
 }
 
 /* ---------------- UI ---------------- */
-
 function switchTab(tab) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-' + tab).classList.add('active');
@@ -459,10 +546,12 @@ function toggleDark() {
 }
 
 /* ---------------- INIT ---------------- */
-
 checkUser();
+loadJobs();
 
-/* expose to HTML */
+/* expose */
+window.addJob = addJob;
+window.deleteJob = deleteJob;
 window.switchTab = switchTab;
 window.tryLogin = tryLogin;
 window.logout = logout;
