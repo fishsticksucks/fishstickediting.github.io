@@ -5,19 +5,23 @@ export default async function handler(req, res) {
 
   const { type, code } = req.body;
 
-  if (!type || !code) {
-    return res.status(400).send('Missing data');
-  }
-
   const webhook = process.env.DISCORD_WEBHOOK;
 
-  await fetch(webhook, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      content: `💚 New Tip!\nType: ${type}\nCode: ${code}`
-    })
-  });
+  if (!webhook) {
+    return res.status(500).send('Missing webhook');
+  }
 
-  res.status(200).json({ success: true });
+  try {
+    await fetch(webhook, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content: `💚 New Tip!\nType: ${type}\nCode: ${code}`
+      })
+    });
+
+    res.status(200).send('ok');
+  } catch (err) {
+    res.status(500).send('error');
+  }
 }
