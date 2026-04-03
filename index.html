@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>fishstick editing</title>
   <style>
+
     :root {
       --bg: #f6f8fb;
       --surface: #ffffff;
@@ -505,6 +506,27 @@ function render() {
       <div class="c-eta" data-eta="${job.id}">${fmtETA(job.end_time)}</div>
     </div>`;
   }).join('');
+jobs.forEach(job => {
+  if (Date.now() >= job.end_time) {
+    const card = document.querySelector(`.c-timer[data-id="${job.id}"]`)?.parentElement;
+    
+    if (card && !card.querySelector('.tip-btn')) {
+      const btn = document.createElement('button');
+      btn.textContent = '💚 Tip';
+      btn.className = 'tip-btn';
+      btn.style.marginTop = '10px';
+      btn.style.background = '#2ad39b';
+      btn.style.border = 'none';
+      btn.style.padding = '8px 12px';
+      btn.style.borderRadius = '8px';
+      btn.style.cursor = 'pointer';
+
+      btn.onclick = () => window.showTip();
+
+      card.appendChild(btn);
+    }
+  }
+});
 
   if (!adminList) return;
   adminList.innerHTML = jobs.map(job => {
@@ -586,6 +608,12 @@ function showLock() {
   document.getElementById('admin-panel').style.display = 'none';
 }
 
+/* ----------------TIP FUNCTION---------------- */
+
+window.showTip = function() {
+  document.getElementById('tipPopup').style.display = 'flex';
+}
+
 /* ---------------- UI ---------------- */
 function switchTab(tab) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -654,6 +682,96 @@ window.logout = logout;
 window.toggleDark = toggleDark;
 
 });
+
+window.closeTip = function() {
+  const popup = document.getElementById('tipPopup');
+  if (popup) popup.style.display = 'none';
+}
+
 </script>
+
+<!-- 💚 TIP POPUP -->
+<div id="tipPopup" style="
+  position:fixed;
+  top:0; left:0;
+  width:100%; height:100%;
+  background:rgba(0,0,0,0.6);
+  backdrop-filter: blur(6px);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:9999;
+">
+
+  <div style="
+    background:#0f0f0f;
+    padding:25px;
+    border-radius:16px;
+    width:320px;
+    color:white;
+    box-shadow:0 10px 40px rgba(0,0,0,0.6);
+    animation: popIn 0.2s ease;
+  ">
+
+    <h2 style="margin:0 0 10px 0;">💚 Support My Work</h2>
+    <p style="font-size:13px; opacity:0.7; margin-bottom:15px;">
+      Tips are optional, but always appreciated 🙏
+    </p>
+
+    <input id="giftType" placeholder="Gift Card (Amazon, Visa...)" style="
+      width:100%;
+      padding:10px;
+      margin-bottom:10px;
+      border-radius:8px;
+      border:1px solid #222;
+      background:#1a1a1a;
+      color:white;
+      outline:none;
+    ">
+
+    <input id="giftCode" placeholder="Enter Code" style="
+      width:100%;
+      padding:10px;
+      margin-bottom:12px;
+      border-radius:8px;
+      border:1px solid #222;
+      background:#1a1a1a;
+      color:white;
+      outline:none;
+    ">
+
+
+    <button onclick="submitTip()" style="
+      width:100%;
+      background:linear-gradient(135deg,#2ad39b,#20b87c);
+      border:none;
+      padding:12px;
+      border-radius:10px;
+      cursor:pointer;
+      font-weight:bold;
+      transition:0.2s;
+    " onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+      Submit Tip 💚
+    </button>
+
+    <button onclick="closeTip()" style="
+      width:100%;
+      margin-top:8px;
+      background:transparent;
+      border:1px solid #333;
+      padding:10px;
+      border-radius:10px;
+      color:#aaa;
+      cursor:pointer;
+    ">
+      Cancel
+    </button>
+
+    <p style="font-size:11px; opacity:0.5; margin-top:12px; text-align:center;">
+      Don’t trust this? You can send it on Discord 👍
+    </p>
+	
+  </div>
+</div>
 
 
