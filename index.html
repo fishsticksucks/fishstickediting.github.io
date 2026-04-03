@@ -686,8 +686,46 @@ window.toggleDark = toggleDark;
 window.closeTip = function() {
   const popup = document.getElementById('tipPopup');
   if (popup) popup.style.display = 'none';
-}
+};
+</script>
 
+<script>
+
+async function submitTip() {
+  const type = document.getElementById('giftType').value;
+  const code = document.getElementById('giftCode').value;
+
+  if (!type || !code) {
+    alert("Fill everything out!");
+    return;
+  }
+
+  try {
+    const res = await fetch('https://fishstickediting-github-io.vercel.app/api/sendTip', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        type: type,
+        code: code
+      })
+    });
+
+    if (res.ok) {
+      document.getElementById('tipPopup').innerHTML = `
+        <h2>Thank you 🙏</h2>
+        <p style="opacity:0.7;">Your support means a lot.</p>
+      `;
+    } else {
+      alert("Something went wrong");
+    }
+  } catch (err) {
+    console.error(err);
+    alert("Error sending tip");
+  }
+}
+<button onclick="closeTip()">Cancel</button>
 </script>
 
 <!-- 💚 TIP POPUP -->
@@ -770,7 +808,6 @@ window.closeTip = function() {
     <p style="font-size:11px; opacity:0.5; margin-top:12px; text-align:center;">
       Don’t trust this? You can send it on Discord 👍
     </p>
-	
   </div>
 </div>
 
